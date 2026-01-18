@@ -98,9 +98,11 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:3000",
                 "https://test-front-security.netlify.app",
-                "https://valan-se-web.vercel.app",
-                "https://valanse.kr",
-                "https://develop.valanse.kr",
+
+                "https://valan-se-web.vercel.app", // 예전 도메인 네임
+                "https://valanse.kr", // 새 도메인 네임
+                "https://develop.valanse.kr", // 새 프론트 개발서버 도메인
+
                 "https://backendbase.store",
                 "http://backendbase.store:8080",
                 "http://backendbase.store:8081",
