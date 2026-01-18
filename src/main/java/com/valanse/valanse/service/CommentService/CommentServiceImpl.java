@@ -2,6 +2,7 @@ package com.valanse.valanse.service.CommentService;
 
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberTemplate;
+import com.valanse.valanse.common.api.ApiException;
 import com.valanse.valanse.domain.*;
 import com.valanse.valanse.domain.enums.Role;
 import com.valanse.valanse.domain.enums.VoteLabel;
@@ -10,8 +11,11 @@ import com.valanse.valanse.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.time.LocalDateTime;
 
 
@@ -42,16 +46,23 @@ public class CommentServiceImpl implements CommentService {
 
             if (!writerId.equals(loginId) && member.getRole() != Role.ADMIN) {
                 System.out.println("삭제 권한 없음: 요청자 ≠ 작성자, 관리자 x");
-                throw new IllegalArgumentException("삭제 권한 없음");
+                throw new ApiException("삭제 권한이 없습니다.",HttpStatus.FORBIDDEN);
             }
 
             comment.setDeletedAt(LocalDateTime.now());
             commentRepository.save(comment);
 
+            CommentGroup commentGroup = comment.getCommentGroup();
+            if (commentGroup != null) {
+                commentGroup.setTotalCommentCount(commentGroup.getTotalCommentCount() - 1);
+                commentGroupRepository.save(commentGroup);
+            }
+
             System.out.println("댓글 ID " + commentId + " → isDeleted=true 저장 완료");
 
         }, () -> {
             System.out.println("삭제 실패: 해당 댓글 ID " + commentId + " 없음");
+            throw new ApiException("댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
         });
     }
 
@@ -139,15 +150,16 @@ public class CommentServiceImpl implements CommentService {
                     .content(null)
                     .build();
         }
+        Long actualCommentCount = commentRepository.countActiveCommentsByVoteId(voteId);
 
         return commentRepository.findMostLikedCommentByVoteId(voteId)
                 .map(comment -> BestCommentResponseDto.builder()
-                        .totalCommentCount(group.getTotalCommentCount())
+                        .totalCommentCount(actualCommentCount.intValue())
                         .content(comment.getContent())
                         .build())
                 .orElse( // 댓글이 없을 경우에도 빈 응답 반환
                         BestCommentResponseDto.builder()
-                                .totalCommentCount(group.getTotalCommentCount())
+                                .totalCommentCount(actualCommentCount.intValue())
                                 .content(null)
                                 .build()
                 );
